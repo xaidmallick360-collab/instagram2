@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Life Personality Quiz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .quiz-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0px 5px 20px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .question {
+            margin-bottom: 15px;
+        }
+        .answers input {
+            margin-right: 5px;
+        }
+        button {
+            display: block;
+            margin: 20px auto 0 auto;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .result {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <h1>Life Personality Quiz</h1>
+        <form id="quizForm">
+            <div class="question">
+                <p>1. Do you enjoy social gatherings?</p>
+                <div class="answers">
+                    <label><input type="radio" name="q0" value="1" required> Yes</label>
+                    <label><input type="radio" name="q0" value="0" required> No</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>2. Do you like to plan things in advance?</p>
+                <div class="answers">
+                    <label><input type="radio" name="q1" value="1" required> Yes</label>
+                    <label><input type="radio" name="q1" value="0" required> No</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>3. Do you consider yourself creative?</p>
+                <div class="answers">
+                    <label><input type="radio" name="q2" value="1" required> Yes</label>
+                    <label><input type="radio" name="q2" value="0" required> No</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>4. Are you comfortable taking risks?</p>
+                <div class="answers">
+                    <label><input type="radio" name="q3" value="1" required> Yes</label>
+                    <label><input type="radio" name="q3" value="0" required> No</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>5. Do you often rely on logic over emotions?</p>
+                <div class="answers">
+                    <label><input type="radio" name="q4" value="1" required> Yes</label>
+                    <label><input type="radio" name="q4" value="0" required> No</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>6. Do you enjoy helping others with their problems?</p>
+                <div class="answers">
+                    <label><input type="radio" name="q5" value="1" required> Yes</label>
+                    <label><input type="radio" name="q5" value="0" required> No</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>7. Are you comfortable with change?</p>
+                <div class="answers">
+                    <label><input type="radio" name="q6" value="1" required> Yes</label>
+                    <label><input type="radio" name="q6" value="0" required> No</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>8. Do you enjoy working in a team?</p>
+                <div class="answers">
+                    <label><input type="radio" name="q7" value="1" required> Yes</label>
+                    <label><input type="radio" name="q7" value="0" required> No</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>9. Do you handle stress well?</p>
+                <div class="answers">
+                    <label><input type="radio" name="q8" value="1" required> Yes</label>
+                    <label><input type="radio" name="q8" value="0" required> No</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>10. Do you enjoy learning new things?</p>
+                <div class="answers">
+                    <label><input type="radio" name="q9" value="1" required> Yes</label>
+                    <label><input type="radio" name="q9" value="0" required> No</label>
+                </div>
+            </div>
+
+            <button type="submit">Submit</button>
+        </form>
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        document.getElementById('quizForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            let totalScore = 0;
+            for (let i = 0; i < 10; i++) {
+                totalScore += parseInt(document.querySelector(`input[name="q${i}"]:checked`).value);
+            }
+
+            let personality = "";
+            if (totalScore <= 3) {
+                personality = "You are Introverted and Thoughtful.";
+            } else if (totalScore <= 6) {
+                personality = "You are Balanced and Flexible.";
+            } else {
+                personality = "You are Extroverted and Adventurous.";
+            }
+
+            document.getElementById('result').textContent = personality;
+        });
+    </script>
+</body>
+</html>
